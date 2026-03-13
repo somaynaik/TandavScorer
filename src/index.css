@@ -1,0 +1,125 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 220 20% 8%;
+    --foreground: 210 20% 95%;
+
+    --card: 220 18% 12%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 220 18% 12%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 145 60% 45%;
+    --primary-foreground: 220 20% 8%;
+
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 220 15% 15%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 42 90% 55%;
+    --accent-foreground: 220 20% 8%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 145 60% 45%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 145 60% 45%;
+    --sidebar-primary-foreground: 220 20% 8%;
+    --sidebar-accent: 220 15% 15%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 145 60% 45%;
+
+    /* Custom tokens */
+    --cricket-green: 145 60% 45%;
+    --cricket-green-dim: 145 40% 25%;
+    --gold: 42 90% 55%;
+    --gold-dim: 42 60% 35%;
+    --live-red: 0 85% 55%;
+    --win: 145 60% 45%;
+    --loss: 0 72% 50%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(145 60% 45%), hsl(160 50% 35%));
+    --gradient-gold: linear-gradient(135deg, hsl(42 90% 55%), hsl(35 80% 45%));
+    --gradient-card: linear-gradient(180deg, hsl(220 18% 14%), hsl(220 18% 10%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 20% 8%) 0%, hsl(220 25% 12%) 50%, hsl(145 30% 12%) 100%);
+
+    --shadow-glow: 0 0 20px hsl(145 60% 45% / 0.15);
+    --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.3);
+    --shadow-gold: 0 0 20px hsl(42 90% 55% / 0.2);
+
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  .gradient-gold {
+    background: var(--gradient-gold);
+  }
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-gold {
+    box-shadow: var(--shadow-gold);
+  }
+  .stat-value {
+    @apply text-2xl font-bold tracking-tight;
+    font-family: var(--font-display);
+  }
+  .live-pulse {
+    @apply relative;
+  }
+  .live-pulse::before {
+    content: '';
+    @apply absolute w-2 h-2 rounded-full;
+    background: hsl(var(--live-red));
+    animation: pulse-dot 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.5); }
+  }
+}
