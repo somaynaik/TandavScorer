@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -15,19 +16,32 @@ const statusStyles = {
   completed: "bg-muted text-muted-foreground border-border",
 };
 
+type MatchPartition = "upcoming" | "results";
+
 const MatchesPage = () => {
   const navigate = useNavigate();
   const { data: matches, isLoading, error, refetch, isFetching } = useMatches();
   const { isAdmin } = useAuth();
+  const [activePartition, setActivePartition] = useState<MatchPartition>("upcoming");
+
+  const upcomingMatches =
+    matches?.filter((match) => match.status === "upcoming" || match.status === "live") ?? [];
+  const resultMatches = matches?.filter((match) => match.status === "completed") ?? [];
+  const activeMatches = activePartition === "upcoming" ? upcomingMatches : resultMatches;
 
   useMatchesRealtime();
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="container py-8 space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold text-foreground">
-          All Matches
-        </h1>
+        <div>
+          <h1 className="font-display text-3xl font-bold text-foreground">
+            Matches
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upcoming fixtures and completed results
+          </p>
+        </div>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
@@ -43,7 +57,7 @@ const MatchesPage = () => {
       {isLoading && (
         <div className="flex items-center justify-center gap-3 py-16 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-sm">Loading matches…</span>
+          <span className="text-sm">Loading matches...</span>
         </div>
       )}
 
@@ -78,98 +92,156 @@ const MatchesPage = () => {
       )}
 
       {!isLoading && matches && matches.length > 0 && (
-        <div className="grid gap-4">
-          {["live", "upcoming", "completed"].flatMap((status) =>
-            matches
-              .filter((m) => m.status === status)
-              .map((match) => (
-                <div
-                  key={match.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => navigate(`/match/${match.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      navigate(`/match/${match.id}`);
-                    }
-                  }}
-                  className="rounded-xl border border-border gradient-card p-5 transition-all hover:border-primary/30 hover:shadow-glow shadow-card cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+        <div className="space-y-8">
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="grid grid-cols-2 bg-black/40">
+              {[
+                {
+                  id: "upcoming" as MatchPartition,
+                  label: "Upcoming",
+                  count: upcomingMatches.length,
+                },
+                {
+                  id: "results" as MatchPartition,
+                  label: "Results",
+                  count: resultMatches.length,
+                },
+              ].map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => setActivePartition(section.id)}
+                  className={`flex items-center justify-center gap-2 px-4 py-4 text-base font-semibold transition-colors ${
+                    activePartition === section.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-transparent text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusStyles[match.status]}`}
-                        >
-                          {match.status === "live" && (
-                            <span className="h-1.5 w-1.5 rounded-full bg-live animate-pulse" />
-                          )}
-                          {match.status}
-                        </span>
-                        {match.tournament_name && (
-                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                            {match.tournament_name}
-                          </span>
-                        )}
-                      </div>
+                  <span>{section.label}</span>
+                  <span className="text-sm opacity-80">({section.count})</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-                      <p className="inline-block font-display text-lg font-bold text-foreground">
-                        {match.team1}{" "}
-                        <span className="text-muted-foreground font-normal">
-                          vs
-                        </span>{" "}
-                        {match.team2}
-                      </p>
-
-                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {match.date} · {match.time?.slice(0, 5)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {match.venue}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right space-y-1 min-w-[130px]">
-                      {match.team1_score && (
-                        <p className="font-display font-bold text-foreground">
-                          {match.team1}: {match.team1_score}
-                        </p>
-                      )}
-                      {match.team2_score && (
-                        <p className="font-display font-bold text-foreground">
-                          {match.team2}: {match.team2_score}
-                        </p>
-                      )}
-                      {match.result && (
-                        <p className="text-xs text-primary font-medium">
-                          {match.result}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {match.status === "upcoming" && !isAdmin && (
-                    <div className="mt-4 flex justify-end">
-                      <Link
-                        to={`/match/${match.id}/team-select`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
-                      >
-                        Create Fantasy XI
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )),
+          {activeMatches.length > 0 ? (
+            <div className="space-y-4">
+              {activeMatches.map((match) => (
+                <MatchListCard
+                  key={match.id}
+                  match={match}
+                  isAdmin={isAdmin}
+                  navigate={navigate}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border gradient-card p-10 text-center shadow-card">
+              <p className="font-display font-semibold text-foreground">
+                No {activePartition} matches
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {activePartition === "upcoming"
+                  ? "Scheduled fixtures and live games will appear here."
+                  : "Completed matches will appear here after scoring is finished."}
+              </p>
+            </div>
           )}
         </div>
       )}
     </div>
   );
 };
+
+interface MatchListCardProps {
+  match: NonNullable<ReturnType<typeof useMatches>["data"]>[number];
+  isAdmin: boolean;
+  navigate: ReturnType<typeof useNavigate>;
+}
+
+const MatchListCard = ({ match, isAdmin, navigate }: MatchListCardProps) => (
+  <div
+    role="button"
+    tabIndex={0}
+    onClick={() => navigate(`/match/${match.id}`)}
+    onKeyDown={(e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        navigate(`/match/${match.id}`);
+      }
+    }}
+    className="rounded-2xl border border-border bg-card shadow-card overflow-hidden transition-all hover:border-primary/30 hover:shadow-glow cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50"
+  >
+    <div className="p-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-3 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {match.tournament_name && (
+              <p className="text-base font-semibold text-primary">
+                {match.tournament_name}
+              </p>
+            )}
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${statusStyles[match.status]}`}
+            >
+              {match.status === "live" && (
+                <span className="h-1.5 w-1.5 rounded-full bg-live animate-pulse" />
+              )}
+              {match.status === "completed" ? "result" : match.status}
+            </span>
+          </div>
+
+          <div className="space-y-1">
+            <p className="font-display text-3xl font-bold text-foreground">
+              {match.team1}
+            </p>
+            <p className="font-display text-3xl font-bold text-foreground/90">
+              {match.team2}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-4 w-4" />
+              {match.date}
+              {match.time ? ` · ${match.time.slice(0, 5)}` : ""}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MapPin className="h-4 w-4" />
+              {match.venue}
+            </span>
+          </div>
+        </div>
+
+        <div className="min-w-[180px] text-left lg:text-right space-y-2">
+          {match.team1_score && (
+            <p className="font-display text-2xl font-bold text-foreground">
+              {match.team1}: {match.team1_score}
+            </p>
+          )}
+          {match.team2_score && (
+            <p className="font-display text-2xl font-bold text-foreground">
+              {match.team2}: {match.team2_score}
+            </p>
+          )}
+          {match.result && (
+            <p className="text-sm font-semibold text-primary">{match.result}</p>
+          )}
+        </div>
+      </div>
+
+      {match.status === "upcoming" && !isAdmin && (
+        <div className="mt-5 border-t border-border pt-4 flex justify-end">
+          <Link
+            to={`/match/${match.id}/team-select`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+          >
+            Create Fantasy XI
+          </Link>
+        </div>
+      )}
+    </div>
+  </div>
+);
 
 export default MatchesPage;

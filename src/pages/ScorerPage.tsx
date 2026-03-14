@@ -87,6 +87,7 @@ const ScorerPage = () => {
   const [draftTeam2Xi, setDraftTeam2Xi] = useState<string[]>([]);
 
   const [pendingRuns, setPendingRuns] = useState<number | null>(null);
+  const [pendingWicket, setPendingWicket] = useState<Wicket | null>(null);
 
   useEffect(() => {
     if (!matchId) return;
@@ -210,7 +211,12 @@ const ScorerPage = () => {
     });
   };
 
-  const record = async (runs: number, extras?: Extras, wicket?: Wicket) => {
+  const record = async (
+    runs: number,
+    extras?: Extras,
+    wicket?: Wicket,
+    fielderId?: string | null,
+  ) => {
     if (!readyToScore || !striker || !currentBowler) {
       toast.error("Select striker, non-striker, and current bowler first.");
       return;
@@ -219,6 +225,7 @@ const ScorerPage = () => {
     const legal = isLegalDelivery(extras);
     const totalBallRuns = runs + (extras === "wide" || extras === "noball" ? 1 : 0);
 
+    const fielder = fielderId ? playerMap.get(fielderId) : null;
     const desc = wicket
       ? `W-${wicket}`
       : extras
@@ -234,7 +241,7 @@ const ScorerPage = () => {
         runs,
         extras: extras ?? null,
         wicket: wicket ?? null,
-        description: `${desc} (${striker.name} vs ${currentBowler.name}) [B:${striker.id}|BO:${currentBowler.id}]`,
+        description: `${desc} (${striker.name} vs ${currentBowler.name}${fielder ? ` | ${fielder.name}` : ""}) [B:${striker.id}|BO:${currentBowler.id}${fielder ? `|F:${fielder.id}` : ""}]`,
       });
 
       setInningsState((prev) => {
@@ -271,6 +278,21 @@ const ScorerPage = () => {
         description: (err as Error).message,
       });
     }
+  };
+
+  const handleWicket = async (wicket: Wicket) => {
+    if (wicket === "Caught" || wicket === "Run Out") {
+      setPendingWicket(wicket);
+      return;
+    }
+    await record(0, undefined, wicket);
+  };
+
+  const confirmFielderWicket = async (fielderId: string) => {
+    const wicket = pendingWicket;
+    setPendingWicket(null);
+    if (!wicket) return;
+    await record(0, undefined, wicket, fielderId);
   };
 
   const confirmWithRuns = async (extras: Extras) => {
@@ -704,6 +726,33 @@ const ScorerPage = () => {
             </div>
           )}
 
+          {pendingWicket && (
+            <div className="rounded-xl border border-gold/30 bg-gold/10 p-4 space-y-3">
+              <p className="text-sm font-semibold">
+                Select fielder for {pendingWicket.toLowerCase()}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {bowlingXi
+                  .filter((id) => id !== inningsState.strikerId && id !== inningsState.nonStrikerId)
+                  .map((id) => (
+                    <button
+                      key={id}
+                      onClick={() => confirmFielderWicket(id)}
+                      className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium"
+                    >
+                      {playerMap.get(id)?.name ?? "Unknown"}
+                    </button>
+                  ))}
+              </div>
+              <button
+                onClick={() => setPendingWicket(null)}
+                className="rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-medium">Runs</p>
@@ -761,8 +810,8 @@ const ScorerPage = () => {
                 {(["Bowled", "Caught", "Run Out", "LBW", "Stumped"] as Wicket[]).map((w) => (
                   <button
                     key={w}
-                    onClick={() => record(0, undefined, w)}
-                    disabled={isBusy || !readyToScore}
+                    onClick={() => void handleWicket(w)}
+                    disabled={isBusy || !readyToScore || pendingWicket !== null}
                     className="rounded-xl border border-destructive/30 bg-destructive/10 py-3 text-xs font-semibold text-destructive disabled:opacity-40"
                   >
                     {w}

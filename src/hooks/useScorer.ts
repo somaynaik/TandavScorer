@@ -269,15 +269,17 @@ type ParsedMeta = {
   cleanDescription: string;
   batterId: string | null;
   bowlerId: string | null;
+  fielderId: string | null;
   batterName: string | null;
   bowlerName: string | null;
+  fielderName: string | null;
 };
 
-function parseEventMeta(description: string | null): ParsedMeta {
+export function parseEventMeta(description: string | null): ParsedMeta {
   const text = description ?? "";
-  const actorMatch = text.match(/\[B:([^\]|]+)\|BO:([^\]]+)\]\s*$/);
+  const actorMatch = text.match(/\[B:([^\]|]+)\|BO:([^\]|]+)(?:\|F:([^\]]+))?\]\s*$/);
   const withNoActor = actorMatch ? text.replace(actorMatch[0], "").trim() : text;
-  const nameMatch = withNoActor.match(/\((.+) vs (.+)\)\s*$/);
+  const nameMatch = withNoActor.match(/\((.+) vs (.+?)(?: \| (.+))?\)\s*$/);
   const cleanDescription = nameMatch
     ? withNoActor.replace(nameMatch[0], "").trim()
     : withNoActor.trim();
@@ -286,8 +288,10 @@ function parseEventMeta(description: string | null): ParsedMeta {
     cleanDescription,
     batterId: actorMatch ? actorMatch[1] : null,
     bowlerId: actorMatch ? actorMatch[2] : null,
+    fielderId: actorMatch ? actorMatch[3] ?? null : null,
     batterName: nameMatch ? nameMatch[1] : null,
     bowlerName: nameMatch ? nameMatch[2] : null,
+    fielderName: nameMatch ? nameMatch[3] ?? null : null,
   };
 }
 
@@ -408,7 +412,11 @@ export function computeInningsScorecard(
     if (e.wicket) {
       batter.isOut = true;
       batter.dismissal =
-        e.wicket === "Run Out" ? "run out" : `${e.wicket.toLowerCase()} b ${bowler.name}`;
+        e.wicket === "Caught"
+          ? `c ${meta.fielderName ?? "Unknown"} b ${bowler.name}`
+          : e.wicket === "Run Out"
+            ? `run out ${meta.fielderName ? `(${meta.fielderName})` : ""}`.trim()
+            : `${e.wicket.toLowerCase()} b ${bowler.name}`;
       if (e.wicket !== "Run Out") {
         bowler.wickets += 1;
       }

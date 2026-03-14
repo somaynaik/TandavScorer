@@ -33,14 +33,23 @@ const HomePage = () => {
   const liveMatches = matches?.filter((m) => m.status === "live") ?? [];
   const upcomingMatches =
     matches?.filter((m) => m.status === "upcoming").slice(0, 3) ?? [];
-  const currentTournament = tournaments?.[0];
+  const recentTournaments = tournaments?.slice(0, 3) ?? [];
   const isLoading = matchesLoading || tournamentsLoading || leaderboardLoading;
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Hero */}
-      <section className="gradient-hero py-16 md:py-24">
-        <div className="container text-center space-y-6">
+      <section className="relative overflow-hidden py-16 md:py-24">
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+        >
+          <source src="/hero-bg.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-[rgba(10,14,22,0.8)]" />
+        <div className="container relative text-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm text-primary">
             <Zap className="h-3.5 w-3.5" />
             Season Live Now
@@ -72,15 +81,13 @@ const HomePage = () => {
       </section>
 
       <div className="container space-y-8">
-        {/* Loading */}
         {isLoading && (
           <div className="flex items-center justify-center gap-3 py-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Loading latest data…</span>
+            <span className="text-sm">Loading latest data...</span>
           </div>
         )}
 
-        {/* Error */}
         {matchesError && (
           <div className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-destructive text-sm">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
@@ -88,32 +95,43 @@ const HomePage = () => {
           </div>
         )}
 
-        {/* Tournament Banner */}
-        {currentTournament && (
-          <div className="rounded-xl border border-border gradient-card p-6 shadow-card">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-gold shadow-gold">
-                  <Trophy className="h-6 w-6 text-accent-foreground" />
-                </div>
-                <div>
-                  <h2 className="font-display text-xl font-bold text-foreground">
-                    {currentTournament.name}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {currentTournament.teams} Teams ·{" "}
-                    {currentTournament.matches} Matches
-                  </p>
-                </div>
-              </div>
-              <span className="inline-flex items-center self-start rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary uppercase tracking-wide">
-                {currentTournament.status}
-              </span>
+        {recentTournaments.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="font-display text-xl font-bold text-foreground flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-gold" />
+              Recent Tournaments
+            </h2>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {recentTournaments.map((tournament) => (
+                <Link
+                  key={tournament.id}
+                  to={`/tournament/${tournament.id}`}
+                  className="rounded-xl border border-border gradient-card p-6 shadow-card transition-all hover:border-primary/30 hover:shadow-glow"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-gold shadow-gold">
+                        <Trophy className="h-6 w-6 text-accent-foreground" />
+                      </div>
+                      <div>
+                        <h2 className="font-display text-xl font-bold text-foreground">
+                          {tournament.name}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                          {tournament.teams} Teams · {tournament.matches} Matches
+                        </p>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center self-start rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary uppercase tracking-wide">
+                      {tournament.status}
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Live Matches */}
         {liveMatches.length > 0 && (
           <section className="space-y-4">
             <h2 className="font-display text-xl font-bold text-foreground flex items-center gap-2">
@@ -154,7 +172,6 @@ const HomePage = () => {
           </section>
         )}
 
-        {/* Upcoming Matches */}
         {!matchesLoading && upcomingMatches.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -204,7 +221,6 @@ const HomePage = () => {
           </section>
         )}
 
-        {/* Mini Leaderboard */}
         {!leaderboardLoading && leaderboard && leaderboard.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
@@ -267,7 +283,6 @@ const HomePage = () => {
           </section>
         )}
 
-        {/* Empty state */}
         {!isLoading && !matchesError && matches?.length === 0 && (
           <div className="rounded-xl border border-border gradient-card p-12 text-center shadow-card">
             <Trophy className="mx-auto h-10 w-10 text-muted-foreground mb-4" />

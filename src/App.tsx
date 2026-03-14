@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import MatchesPage from "./pages/MatchesPage";
 import MatchDetailPage from "./pages/MatchDetailPage";
+import TournamentDetailPage from "./pages/TournamentDetailPage";
 import TeamSelectPage from "./pages/TeamSelectPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import AdminPage from "./pages/AdminPage";
@@ -35,6 +36,7 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/matches" element={<MatchesPage />} />
+                  <Route path="/tournament/:id" element={<TournamentDetailPage />} />
                   <Route path="/match/:id" element={<MatchDetailPage />} />
                   <Route
                     path="/match/:id/team-select"

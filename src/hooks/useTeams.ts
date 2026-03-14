@@ -41,13 +41,10 @@ export function useTeamsByTournament(tournamentId: string | null) {
   return useQuery({
     queryKey: tournamentId ? teamKeys.byTournament(tournamentId) : teamKeys.all,
     queryFn: async () => {
-      let query = supabase.from("teams").select("*").order("name", { ascending: true });
-
-      if (tournamentId) {
-        query = query.eq("tournament_id", tournamentId);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from("teams")
+        .select("*")
+        .order("name", { ascending: true });
       if (error) throw new Error(error.message);
       return data as Team[];
     },
@@ -70,6 +67,43 @@ export function useCreateTeam() {
       const { data, error } = await supabase
         .from("teams")
         .insert({ name: name.trim(), tournament_id: tournament_id ?? null })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data as Team;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: teamKeys.all });
+      if (data?.tournament_id) {
+        queryClient.invalidateQueries({
+          queryKey: teamKeys.byTournament(data.tournament_id),
+        });
+      }
+    },
+  });
+}
+
+export function useUpdateTeam() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      name,
+      tournament_id,
+    }: {
+      id: string;
+      name?: string;
+      tournament_id?: string | null;
+    }) => {
+      const { data, error } = await supabase
+        .from("teams")
+        .update({
+          ...(name !== undefined ? { name: name.trim() } : {}),
+          ...(tournament_id !== undefined ? { tournament_id } : {}),
+        })
+        .eq("id", id)
         .select()
         .single();
 

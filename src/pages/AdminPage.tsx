@@ -15,9 +15,14 @@ import {
   UserPlus,
   Trash2,
   ShieldCheck,
+  Pencil,
 } from "lucide-react";
 import { useMatches, useCreateMatch, useUpdateMatch } from "@/hooks/useMatches";
-import { useTournaments, useCreateTournament } from "@/hooks/useTournaments";
+import {
+  useTournaments,
+  useCreateTournament,
+  useUpdateTournament,
+} from "@/hooks/useTournaments";
 import {
   useTeams,
   useTeamsByTournament,
@@ -58,6 +63,9 @@ const AdminPage = () => {
   const { data: tournaments, isLoading: tournamentsLoading } = useTournaments();
 
   const liveCount = matches?.filter((m) => m.status === "live").length ?? 0;
+  const upcomingMatches = matches?.filter((m) => m.status === "upcoming") ?? [];
+  const liveMatches = matches?.filter((m) => m.status === "live") ?? [];
+  const completedMatches = matches?.filter((m) => m.status === "completed") ?? [];
 
   const { data: allTeams } = useTeams();
   const teamCount = allTeams?.length ?? null;
@@ -180,6 +188,7 @@ const AdminPage = () => {
         {openPanel === "team" && (
           <CreateTeamForm
             tournaments={tournaments ?? []}
+            teams={allTeams ?? []}
             onClose={() => setOpenPanel(null)}
           />
         )}
@@ -190,6 +199,8 @@ const AdminPage = () => {
           />
         )}
       </div>
+
+      <ManageTournamentsSection tournaments={tournaments ?? []} />
 
       {/* ── Manage Teams & Players ── */}
       <ManageTeamsSection teams={allTeams ?? []} />
@@ -216,13 +227,129 @@ const AdminPage = () => {
         )}
 
         {!matchesLoading && matches && matches.length > 0 && (
-          <div className="space-y-2">
-            {matches.map((match) => (
-              <MatchAdminRow key={match.id} match={match} />
-            ))}
+          <div className="space-y-5">
+            {[
+              {
+                title: "Upcoming Matches",
+                matches: upcomingMatches,
+                badgeClass: "bg-primary/15 text-primary",
+              },
+              {
+                title: "Live Matches",
+                matches: liveMatches,
+                badgeClass: "bg-live/15 text-live",
+              },
+              {
+                title: "Completed Matches",
+                matches: completedMatches,
+                badgeClass: "bg-secondary text-muted-foreground",
+              },
+            ].map((section) =>
+              section.matches.length > 0 ? (
+                <div key={section.title} className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-display text-sm font-semibold text-foreground">
+                      {section.title}
+                    </h3>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${section.badgeClass}`}
+                    >
+                      {section.matches.length}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {section.matches.map((match) => (
+                      <MatchAdminRow key={match.id} match={match} />
+                    ))}
+                  </div>
+                </div>
+              ) : null,
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+interface ManageTournamentsSectionProps {
+  tournaments: LocalTournament[];
+}
+
+const ManageTournamentsSection = ({
+  tournaments,
+}: ManageTournamentsSectionProps) => {
+  const [expandedTournament, setExpandedTournament] = useState<string | null>(null);
+
+  if (tournaments.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h2 className="font-display text-lg font-bold text-foreground">
+          Manage Tournaments
+        </h2>
+        <Trophy className="h-4 w-4 text-gold" />
+      </div>
+
+      <div className="space-y-2">
+        {tournaments.map((tournament) => (
+          <TournamentCard
+            key={tournament.id}
+            tournament={tournament}
+            expanded={expandedTournament === tournament.id}
+            onToggle={() =>
+              setExpandedTournament((prev) =>
+                prev === tournament.id ? null : tournament.id,
+              )
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface TournamentCardProps {
+  tournament: LocalTournament;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+const TournamentCard = ({
+  tournament,
+  expanded,
+  onToggle,
+}: TournamentCardProps) => {
+  return (
+    <div className="rounded-xl border border-border gradient-card shadow-card overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-4 text-left hover:bg-secondary/30 transition-colors"
+      >
+        <div>
+          <p className="font-display font-semibold text-foreground text-sm">
+            {tournament.name}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Edit tournament settings and schedule details
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Pencil className="h-4 w-4 text-muted-foreground" />
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-border p-4 space-y-4">
+          <EditTournamentForm tournamentId={tournament.id} />
+        </div>
+      )}
     </div>
   );
 };
@@ -768,6 +895,148 @@ interface CreateTournamentFormProps {
   onClose: () => void;
 }
 
+interface EditTournamentFormProps {
+  tournamentId: string;
+}
+
+const EditTournamentForm = ({ tournamentId }: EditTournamentFormProps) => {
+  const { data: tournaments = [] } = useTournaments();
+  const updateTournament = useUpdateTournament();
+  const tournament = tournaments.find((item) => item.id === tournamentId);
+
+  const [form, setForm] = useState<Omit<TournamentInsert, "created_at">>({
+    name: tournament?.name ?? "",
+    start_date: tournament?.start_date ?? "",
+    end_date: tournament?.end_date ?? "",
+    teams: tournament?.teams ?? 0,
+    matches: tournament?.matches ?? 0,
+    status: tournament?.status ?? "upcoming",
+  });
+
+  if (!tournament) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateTournament.mutateAsync({
+        id: tournamentId,
+        ...form,
+      });
+      toast.success(`Updated "${form.name}".`);
+    } catch (err) {
+      toast.error("Failed to update tournament", {
+        description: (err as Error).message,
+      });
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-xl border border-border bg-secondary/20 p-4 space-y-3"
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-foreground">Edit Tournament</p>
+        <span className="text-xs text-muted-foreground">{tournament.id.slice(0, 8)}</span>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="md:col-span-2 space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Tournament Name
+          </label>
+          <input
+            value={form.name}
+            onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Start Date
+          </label>
+          <input
+            type="date"
+            value={form.start_date}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, start_date: e.target.value }))
+            }
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            End Date
+          </label>
+          <input
+            type="date"
+            value={form.end_date}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, end_date: e.target.value }))
+            }
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Number of Teams
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={form.teams}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, teams: Number(e.target.value) }))
+            }
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Total Matches
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={form.matches}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, matches: Number(e.target.value) }))
+            }
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">
+            Status
+          </label>
+          <select
+            value={form.status}
+            onChange={(e) =>
+              setForm((prev) => ({
+                ...prev,
+                status: e.target.value as TournamentInsert["status"],
+              }))
+            }
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+          >
+            <option value="upcoming">Upcoming</option>
+            <option value="ongoing">Ongoing</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={updateTournament.isPending}
+        className="rounded-lg gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+      >
+        {updateTournament.isPending ? "Saving..." : "Save Tournament Changes"}
+      </button>
+    </form>
+  );
+};
+
 const CreateTournamentForm = ({ onClose }: CreateTournamentFormProps) => {
   const createTournament = useCreateTournament();
   const [form, setForm] = useState<TournamentInsert>({
@@ -896,6 +1165,7 @@ const CreateTournamentForm = ({ onClose }: CreateTournamentFormProps) => {
             <option value="completed">Completed</option>
           </select>
         </div>
+
       </div>
 
       <div className="flex items-center gap-2 pt-1">
@@ -932,28 +1202,53 @@ interface LocalTournament {
 
 interface CreateTeamFormProps {
   tournaments: LocalTournament[];
+  teams?: Team[];
   onClose: () => void;
 }
 
-const CreateTeamForm = ({ tournaments, onClose }: CreateTeamFormProps) => {
+const CreateTeamForm = ({
+  tournaments,
+  teams = [],
+  onClose,
+}: CreateTeamFormProps) => {
   const createTeam = useCreateTeam();
+  const [mode, setMode] = useState<"new" | "existing">("new");
   const [name, setName] = useState("");
   const [tournamentId, setTournamentId] = useState(tournaments[0]?.id ?? "");
+  const [existingTeamId, setExistingTeamId] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const existingTeams = teams;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    if (mode === "new" && !name.trim()) {
       setError("Team name is required.");
+      return;
+    }
+    if (mode === "existing" && !existingTeamId) {
+      setError("Select an existing team.");
       return;
     }
     setError(null);
     try {
-      await createTeam.mutateAsync({
-        name: name.trim(),
-        tournament_id: tournamentId || null,
-      });
-      toast.success(`Team "${name.trim()}" added!`);
+      if (mode === "new") {
+        await createTeam.mutateAsync({
+          name: name.trim(),
+          tournament_id: null,
+        });
+        toast.success(`Team "${name.trim()}" added!`);
+      } else {
+        const team = teams.find((item) => item.id === existingTeamId);
+        if (!team) {
+          setError("Selected team was not found.");
+          return;
+        }
+        const tournamentName =
+          tournaments.find((item) => item.id === tournamentId)?.name ??
+          "this tournament";
+        toast.success(`Team "${team.name}" is ready to use in ${tournamentName}.`);
+      }
       onClose();
     } catch (err) {
       toast.error("Failed to add team", {
@@ -967,21 +1262,66 @@ const CreateTeamForm = ({ tournaments, onClose }: CreateTeamFormProps) => {
       onSubmit={handleSubmit}
       className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-4"
     >
-      <h3 className="font-display font-bold text-foreground">New Team</h3>
+      <h3 className="font-display font-bold text-foreground">Add Team</h3>
+
+      <div className="inline-flex rounded-lg border border-border bg-background p-1">
+        <button
+          type="button"
+          onClick={() => setMode("new")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            mode === "new"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground"
+          }`}
+        >
+          Create New Team
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("existing")}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            mode === "existing"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground"
+          }`}
+        >
+          Use Existing Team
+        </button>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <label className="text-xs font-medium text-muted-foreground">
-            Team Name *
-          </label>
-          <input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Engineering Lions"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-          />
-        </div>
+        {mode === "new" ? (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Team Name *
+            </label>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Engineering Lions"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+            />
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Existing Team *
+            </label>
+            <select
+              value={existingTeamId}
+              onChange={(e) => setExistingTeamId(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+            >
+              <option value="">Select existing team</option>
+              {existingTeams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">
@@ -1020,7 +1360,11 @@ const CreateTeamForm = ({ tournaments, onClose }: CreateTeamFormProps) => {
           ) : (
             <Plus className="h-4 w-4" />
           )}
-          {createTeam.isPending ? "Adding…" : "Add Team"}
+          {createTeam.isPending
+            ? "Saving..."
+            : mode === "new"
+              ? "Add Team"
+              : "Use Team"}
         </button>
         <button
           type="button"
@@ -1149,13 +1493,10 @@ const CreateMatchForm = ({ tournaments, onClose }: CreateMatchFormProps) => {
           <div className="md:col-span-2 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/10 p-3 text-sm text-gold">
             <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
             <div>
-              <p className="font-semibold">
-                No teams found
-                {selectedTournamentId ? " for this tournament" : ""}.
-              </p>
+              <p className="font-semibold">No teams found.</p>
               <p className="text-xs mt-0.5 text-gold/80">
                 Use <span className="font-semibold">Add Team</span> above to
-                create teams first, then come back to schedule a match.
+                create or reuse teams first, then come back to schedule a match.
               </p>
             </div>
           </div>
