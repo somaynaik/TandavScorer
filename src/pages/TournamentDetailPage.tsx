@@ -1,7 +1,19 @@
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertCircle, ArrowLeft, Calendar, Loader2, MapPin, Trophy } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  MapPin,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { useMatches, useMatchesRealtime } from "@/hooks/useMatches";
 import { useTournament } from "@/hooks/useTournaments";
+import { useTeamRoster } from "@/hooks/usePlayers";
 
 const badgeStyles = {
   live: "bg-live/15 text-live border-live/30",
@@ -11,6 +23,7 @@ const badgeStyles = {
 
 const TournamentDetailPage = () => {
   const { id } = useParams<{ id: string }>();
+  const [showTeams, setShowTeams] = useState(false);
   const { data: tournament, isLoading: tournamentLoading, error: tournamentError } =
     useTournament(id!);
   const { data: matches = [], isLoading: matchesLoading, error: matchesError } = useMatches();
@@ -24,6 +37,15 @@ const TournamentDetailPage = () => {
       const bValue = `${b.date} ${b.time ?? ""}`;
       return aValue.localeCompare(bValue);
     });
+  const tournamentTeams = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          tournamentMatches.flatMap((match) => [match.team1, match.team2]).filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [tournamentMatches],
+  );
 
   const isLoading = tournamentLoading || matchesLoading;
   const error = tournamentError || matchesError;
@@ -88,14 +110,51 @@ const TournamentDetailPage = () => {
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <h2 className="font-display text-2xl font-bold text-foreground">
             Matches
           </h2>
-          <span className="inline-flex rounded-full border border-border bg-secondary px-3 py-1 text-xs font-semibold text-muted-foreground">
-            {tournamentMatches.length} match{tournamentMatches.length !== 1 ? "es" : ""}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowTeams((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80"
+            >
+              <Users className="h-4 w-4" />
+              {showTeams ? "Hide Teams" : "View Teams"}
+              {showTeams ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+            <span className="inline-flex rounded-full border border-border bg-secondary px-3 py-1 text-xs font-semibold text-muted-foreground">
+              {tournamentMatches.length} match{tournamentMatches.length !== 1 ? "es" : ""}
+            </span>
+          </div>
         </div>
+
+        {showTeams && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-xl font-bold text-foreground">
+                Teams
+              </h3>
+              <span className="inline-flex rounded-full border border-border bg-secondary px-3 py-1 text-xs font-semibold text-muted-foreground">
+                {tournamentTeams.length} team{tournamentTeams.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            {tournamentTeams.length === 0 ? (
+              <div className="rounded-xl border border-border gradient-card p-8 text-center shadow-card">
+                <p className="text-sm text-muted-foreground">
+                  No teams available for this tournament yet.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {tournamentTeams.map((teamName) => (
+                  <TournamentTeamCard key={teamName} teamName={teamName} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {tournamentMatches.length === 0 ? (
           <div className="rounded-xl border border-border gradient-card p-10 text-center shadow-card">
@@ -172,6 +231,59 @@ const TournamentDetailPage = () => {
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+const TournamentTeamCard = ({ teamName }: { teamName: string }) => {
+  const { data: roster = [], isLoading } = useTeamRoster(teamName);
+
+  return (
+    <div className="rounded-xl border border-border gradient-card shadow-card overflow-hidden">
+      <div className="border-b border-border px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h4 className="font-display text-lg font-bold text-foreground">
+                {teamName}
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                {isLoading
+                  ? "Loading players..."
+                  : `${roster.length} player${roster.length !== 1 ? "s" : ""}`}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 px-5 py-6 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading squad...
+        </div>
+      ) : roster.length === 0 ? (
+        <div className="px-5 py-6 text-sm text-muted-foreground">
+          No players added for this team yet.
+        </div>
+      ) : (
+        <div className="divide-y divide-border/50">
+          {roster.map((player) => (
+            <div
+              key={player.id}
+              className="flex items-center justify-between gap-3 px-5 py-3"
+            >
+              <div>
+                <p className="text-sm font-medium text-foreground">{player.name}</p>
+                <p className="text-xs text-muted-foreground">{player.role}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
