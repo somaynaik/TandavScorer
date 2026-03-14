@@ -11,6 +11,7 @@ import MatchDetailPage from "./pages/MatchDetailPage";
 import TournamentDetailPage from "./pages/TournamentDetailPage";
 import TeamSelectPage from "./pages/TeamSelectPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
+import FantasyRankPage from "./pages/FantasyRankPage";
 import AdminPage from "./pages/AdminPage";
 import ScorerPage from "./pages/ScorerPage";
 import LoginPage from "./pages/LoginPage";
@@ -43,6 +44,14 @@ const App = () => (
                     element={<TeamSelectPage />}
                   />
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
+                  <Route
+                    path="/fantasy-rank"
+                    element={
+                      <ProtectedRoute>
+                        <FantasyRankPage />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* Protected: must be signed in */}
                   <Route

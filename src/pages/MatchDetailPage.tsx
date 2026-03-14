@@ -76,12 +76,18 @@ const MatchDetailPage = () => {
 
   const innings1Events = events.filter((e) => e.innings === 1);
   const innings2Events = events.filter((e) => e.innings === 2);
+  const innings3Events = events.filter((e) => e.innings === 3);
+  const innings4Events = events.filter((e) => e.innings === 4);
 
   const innings1Summary = computeScoreSummary(innings1Events);
   const innings2Summary = computeScoreSummary(innings2Events);
+  const innings3Summary = computeScoreSummary(innings3Events);
+  const innings4Summary = computeScoreSummary(innings4Events);
 
   const innings1Scorecard = computeInningsScorecard(innings1Events, playerNameById);
   const innings2Scorecard = computeInningsScorecard(innings2Events, playerNameById);
+  const innings3Scorecard = computeInningsScorecard(innings3Events, playerNameById);
+  const innings4Scorecard = computeInningsScorecard(innings4Events, playerNameById);
 
   const topBatters = useMemo(() => {
     const all = [...innings1Scorecard.batters, ...innings2Scorecard.batters];
@@ -217,6 +223,18 @@ const MatchDetailPage = () => {
             title={`Innings 2 (${innings2Summary.totalRuns}/${innings2Summary.totalWickets})`}
             scorecard={innings2Scorecard}
           />
+          {innings3Events.length > 0 && (
+            <InningsScorecardSection
+              title={`Super Over 1 (${innings3Summary.totalRuns}/${innings3Summary.totalWickets})`}
+              scorecard={innings3Scorecard}
+            />
+          )}
+          {innings4Events.length > 0 && (
+            <InningsScorecardSection
+              title={`Super Over 2 (${innings4Summary.totalRuns}/${innings4Summary.totalWickets})`}
+              scorecard={innings4Scorecard}
+            />
+          )}
         </div>
       )}
 

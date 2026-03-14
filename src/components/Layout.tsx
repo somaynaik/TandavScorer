@@ -5,6 +5,7 @@ import {
   BarChart3,
   Shield,
   Tv,
+  Star,
   Menu,
   X,
   LogIn,
@@ -19,6 +20,7 @@ const navItems = [
   { to: "/", label: "Home", icon: Trophy },
   { to: "/matches", label: "Matches", icon: Calendar },
   { to: "/leaderboard", label: "Leaderboard", icon: BarChart3 },
+  { to: "/fantasy-rank", label: "Fantasy Rank", icon: Star },
   { to: "/admin", label: "Admin", icon: Shield },
 ];
 
@@ -65,7 +67,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems
-              .filter((item) => item.to !== "/admin" || canAccessAdmin)
+              .filter((item) => {
+                if (item.to === "/admin") return canAccessAdmin;
+                if (item.to === "/fantasy-rank") return isAuthenticated && !canAccessAdmin;
+                return true;
+              })
               .map((item) => {
                 const isActive =
                   location.pathname === item.to ||
@@ -166,7 +172,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         {mobileOpen && (
           <nav className="md:hidden border-t border-border bg-background p-4 space-y-1">
             {navItems
-              .filter((item) => item.to !== "/admin" || canAccessAdmin)
+              .filter((item) => {
+                if (item.to === "/admin") return canAccessAdmin;
+                if (item.to === "/fantasy-rank") return isAuthenticated && !canAccessAdmin;
+                return true;
+              })
               .map((item) => {
                 const isActive = location.pathname === item.to;
                 return (

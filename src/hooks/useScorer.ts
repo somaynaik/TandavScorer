@@ -3,12 +3,14 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { BallEventInsert } from "@/integrations/supabase/types";
 
+export type ScorerInnings = 1 | 2 | 3 | 4;
+
 // ─── Query Keys ───────────────────────────────────────────────────────────────
 
 export const scorerKeys = {
   all: ["ball_events"] as const,
   byMatch: (matchId: string) => ["ball_events", "match", matchId] as const,
-  byMatchAndInnings: (matchId: string, innings: 1 | 2) =>
+  byMatchAndInnings: (matchId: string, innings: ScorerInnings) =>
     ["ball_events", "match", matchId, "innings", innings] as const,
 };
 
@@ -35,7 +37,7 @@ export function useBallEvents(matchId: string) {
 
 // ─── Fetch ball events for a specific innings ─────────────────────────────────
 
-export function useBallEventsByInnings(matchId: string, innings: 1 | 2) {
+export function useBallEventsByInnings(matchId: string, innings: ScorerInnings) {
   return useQuery({
     queryKey: scorerKeys.byMatchAndInnings(matchId, innings),
     queryFn: async () => {
@@ -78,7 +80,7 @@ export function useAddBallEvent() {
         queryClient.invalidateQueries({
           queryKey: scorerKeys.byMatchAndInnings(
             data.match_id,
-            data.innings as 1 | 2
+            data.innings as ScorerInnings
           ),
         });
       }
@@ -97,7 +99,7 @@ export function useUndoLastBallEvent() {
       innings,
     }: {
       matchId: string;
-      innings: 1 | 2;
+      innings: ScorerInnings;
     }) => {
       const { data: latest, error: fetchError } = await supabase
         .from("ball_events")
@@ -170,7 +172,7 @@ export function useBallEventsRealtime(matchId: string) {
         },
         (payload) => {
           const incoming = payload.new as {
-            innings: 1 | 2;
+            innings: ScorerInnings;
             [key: string]: unknown;
           };
 

@@ -169,7 +169,7 @@ export interface Database {
         Row: {
           id: string;
           match_id: string;
-          innings: 1 | 2;
+          innings: 1 | 2 | 3 | 4;
           over_number: number;
           ball_number: number;
           runs: number;
@@ -181,7 +181,7 @@ export interface Database {
         Insert: {
           id?: string;
           match_id: string;
-          innings?: 1 | 2;
+          innings?: 1 | 2 | 3 | 4;
           over_number: number;
           ball_number: number;
           runs?: number;
@@ -193,7 +193,7 @@ export interface Database {
         Update: {
           id?: string;
           match_id?: string;
-          innings?: 1 | 2;
+          innings?: 1 | 2 | 3 | 4;
           over_number?: number;
           ball_number?: number;
           runs?: number;

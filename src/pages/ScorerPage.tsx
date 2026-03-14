@@ -16,6 +16,7 @@ import {
   useBallEventsRealtime,
   computeInningsScorecard,
   computeScoreSummary,
+  type ScorerInnings,
   type InningsScorecard,
 } from "@/hooks/useScorer";
 import { useUpdateMatchScore, useMatch } from "@/hooks/useMatches";
@@ -25,12 +26,18 @@ import { toast } from "sonner";
 
 type Extras = "wide" | "noball" | "bye" | "legbye";
 type Wicket = "Bowled" | "Caught" | "Run Out" | "LBW" | "Stumped";
-type Innings = 1 | 2;
+type Innings = ScorerInnings;
 
 type MatchSetup = {
   totalOvers: number;
   firstBattingTeam: string;
   teamXi: Record<string, string[]>;
+};
+
+type SuperOverSetup = {
+  enabled: boolean;
+  firstBattingTeam: string;
+  totalOvers: number;
 };
 
 type InningsState = {
@@ -76,9 +83,11 @@ const ScorerPage = () => {
   }, [allPlayers]);
 
   const setupKey = `scorer:setup:${matchId}`;
+  const superOverKey = `scorer:superover:${matchId}`;
   const inningsKey = `scorer:innings:${matchId}:${innings}`;
 
   const [setup, setSetup] = useState<MatchSetup | null>(null);
+  const [superOverSetup, setSuperOverSetup] = useState<SuperOverSetup | null>(null);
   const [inningsState, setInningsState] = useState<InningsState>(EMPTY_INNINGS_STATE);
 
   const [draftOvers, setDraftOvers] = useState(5);
@@ -88,6 +97,9 @@ const ScorerPage = () => {
 
   const [pendingRuns, setPendingRuns] = useState<number | null>(null);
   const [pendingWicket, setPendingWicket] = useState<Wicket | null>(null);
+  const [showBatFirstPopup, setShowBatFirstPopup] = useState(false);
+  const [showTieDecisionPopup, setShowTieDecisionPopup] = useState(false);
+  const [showSuperOverBatPopup, setShowSuperOverBatPopup] = useState(false);
 
   useEffect(() => {
     if (!matchId) return;
@@ -104,6 +116,20 @@ const ScorerPage = () => {
       setSetup(null);
     }
   }, [matchId, setupKey, match?.team1, match?.team2]);
+
+  useEffect(() => {
+    if (!matchId) return;
+    const raw = localStorage.getItem(superOverKey);
+    if (!raw) {
+      setSuperOverSetup(null);
+      return;
+    }
+    try {
+      setSuperOverSetup(JSON.parse(raw) as SuperOverSetup);
+    } catch {
+      setSuperOverSetup(null);
+    }
+  }, [matchId, superOverKey]);
 
   useEffect(() => {
     if (!matchId) return;
@@ -132,9 +158,11 @@ const ScorerPage = () => {
   }, [match, setup, draftTeam1Xi.length, draftTeam2Xi.length, team1Roster, team2Roster]);
 
   const firstInningsEvents = events.filter((e) => e.innings === 1);
+  const superOverFirstInningsEvents = events.filter((e) => e.innings === 3);
   const inningsEvents = events.filter((e) => e.innings === innings);
 
   const firstInningsSummary = computeScoreSummary(firstInningsEvents);
+  const superOverFirstSummary = computeScoreSummary(superOverFirstInningsEvents);
   const summary = computeScoreSummary(inningsEvents);
   const legalBalls = legalBallsCount(inningsEvents);
   const inningsScorecard = computeInningsScorecard(
@@ -146,7 +174,11 @@ const ScorerPage = () => {
     setup && match
       ? innings === 1
         ? setup.firstBattingTeam
-        : otherTeam(match.team1, match.team2, setup.firstBattingTeam)
+        : innings === 2
+          ? otherTeam(match.team1, match.team2, setup.firstBattingTeam)
+          : innings === 3
+            ? superOverSetup?.firstBattingTeam ?? ""
+            : otherTeam(match.team1, match.team2, superOverSetup?.firstBattingTeam ?? "")
       : "";
   const bowlingTeam =
     setup && match ? otherTeam(match.team1, match.team2, battingTeam) : "";
@@ -154,14 +186,29 @@ const ScorerPage = () => {
   const battingXi = setup ? setup.teamXi[battingTeam] ?? [] : [];
   const bowlingXi = setup ? setup.teamXi[bowlingTeam] ?? [] : [];
 
-  const totalOvers = setup?.totalOvers ?? 0;
-  const target = innings === 2 ? firstInningsSummary.totalRuns + 1 : null;
+  const isSuperOver = innings >= 3;
+  const totalOvers = isSuperOver
+    ? (superOverSetup?.totalOvers ?? 1)
+    : (setup?.totalOvers ?? 0);
+  const target =
+    innings === 2
+      ? firstInningsSummary.totalRuns + 1
+      : innings === 4
+        ? superOverFirstSummary.totalRuns + 1
+        : null;
+  const matchFinished = match?.status === "completed";
 
   const inningsEndedByOvers = totalOvers > 0 && legalBalls >= totalOvers * 6;
   const inningsEndedByAllOut = summary.totalWickets >= 10;
   const inningsEndedByChase = innings === 2 && target !== null && summary.totalRuns >= target;
+  const superOverEndedByChase =
+    innings === 4 && target !== null && summary.totalRuns >= target;
   const inningsComplete = Boolean(
-    setup && (inningsEndedByOvers || inningsEndedByAllOut || inningsEndedByChase),
+    setup &&
+      (inningsEndedByOvers ||
+        inningsEndedByAllOut ||
+        inningsEndedByChase ||
+        superOverEndedByChase),
   );
 
   const currentOver = summary.currentOver;
@@ -316,9 +363,13 @@ const ScorerPage = () => {
     try {
       await resetEvents.mutateAsync(matchId);
       localStorage.removeItem(setupKey);
+      localStorage.removeItem(superOverKey);
       localStorage.removeItem(`scorer:innings:${matchId}:1`);
       localStorage.removeItem(`scorer:innings:${matchId}:2`);
+      localStorage.removeItem(`scorer:innings:${matchId}:3`);
+      localStorage.removeItem(`scorer:innings:${matchId}:4`);
       setSetup(null);
+      setSuperOverSetup(null);
       setInningsState(EMPTY_INNINGS_STATE);
       toast.success("Match reset");
     } catch (err) {
@@ -326,13 +377,14 @@ const ScorerPage = () => {
     }
   };
 
-  const saveSetup = () => {
+  const saveSetup = (firstBattingTeamOverride?: string) => {
     if (!match) return;
     if (draftTeam1Xi.length !== 11 || draftTeam2Xi.length !== 11) {
       toast.error("Select exactly 11 players for each team.");
       return;
     }
-    if (!draftFirstBattingTeam) {
+    const firstBattingTeam = firstBattingTeamOverride ?? draftFirstBattingTeam;
+    if (!firstBattingTeam) {
       toast.error("Select the team batting first.");
       return;
     }
@@ -343,7 +395,7 @@ const ScorerPage = () => {
 
     const value: MatchSetup = {
       totalOvers: draftOvers,
-      firstBattingTeam: draftFirstBattingTeam,
+      firstBattingTeam,
       teamXi: {
         [match.team1]: draftTeam1Xi,
         [match.team2]: draftTeam2Xi,
@@ -360,6 +412,63 @@ const ScorerPage = () => {
     if (innings !== 1) {
       navigate(`/scorer?matchId=${matchId}&innings=1`, { replace: true });
     }
+  };
+
+  const declareTieResult = async () => {
+    if (!matchId) return;
+    setShowTieDecisionPopup(false);
+    await updateScore.mutateAsync({
+      id: matchId,
+      status: "completed",
+      result: "Match tied",
+    });
+    toast.success("Match declared tied.");
+  };
+
+  const startSuperOver = () => {
+    if (!matchId) return;
+    setShowTieDecisionPopup(false);
+    setShowSuperOverBatPopup(true);
+  };
+
+  const confirmSuperOverBattingFirst = async (teamName: string) => {
+    if (!matchId) return;
+    const value: SuperOverSetup = {
+      enabled: true,
+      firstBattingTeam: teamName,
+      totalOvers: 1,
+    };
+    localStorage.setItem(superOverKey, JSON.stringify(value));
+    localStorage.setItem(`scorer:innings:${matchId}:3`, JSON.stringify(EMPTY_INNINGS_STATE));
+    localStorage.setItem(`scorer:innings:${matchId}:4`, JSON.stringify(EMPTY_INNINGS_STATE));
+    setSuperOverSetup(value);
+    setShowSuperOverBatPopup(false);
+    await updateScore.mutateAsync({
+      id: matchId,
+      status: "live",
+      result: "Super over in progress",
+    });
+    toast.success(`Super over started. ${teamName} will bat first.`);
+    navigate(`/scorer?matchId=${matchId}&innings=3`, { replace: true });
+  };
+
+  const openBatFirstPopup = () => {
+    if (!match) return;
+    if (draftTeam1Xi.length !== 11 || draftTeam2Xi.length !== 11) {
+      toast.error("Select exactly 11 players for each team.");
+      return;
+    }
+    if (draftOvers < 1 || draftOvers > 50) {
+      toast.error("Overs should be between 1 and 50.");
+      return;
+    }
+    setShowBatFirstPopup(true);
+  };
+
+  const confirmBattingFirst = (teamName: string) => {
+    setDraftFirstBattingTeam(teamName);
+    setShowBatFirstPopup(false);
+    saveSetup(teamName);
   };
 
   const selectNewBatter = (id: string) => {
@@ -427,11 +536,28 @@ const ScorerPage = () => {
         return;
       }
 
+      if (innings === 2 && target !== null && summary.totalRuns === target - 1) {
+        setShowTieDecisionPopup(true);
+        return;
+      }
+
+      if (innings === 3) {
+        toast.success(`Super over target: ${summary.totalRuns + 1}`);
+        navigate(`/scorer?matchId=${matchId}&innings=4`, { replace: true });
+        return;
+      }
+
       let result = "Match tied";
       if (target !== null && summary.totalRuns >= target) {
-        result = `${battingTeam} won by ${10 - summary.totalWickets} wickets`;
+        result = isSuperOver
+          ? `${battingTeam} won the super over`
+          : `${battingTeam} won by ${10 - summary.totalWickets} wickets`;
       } else if (target !== null && summary.totalRuns < target - 1) {
-        result = `${bowlingTeam} won by ${target - 1 - summary.totalRuns} runs`;
+        result = isSuperOver
+          ? `${bowlingTeam} won the super over`
+          : `${bowlingTeam} won by ${target - 1 - summary.totalRuns} runs`;
+      } else if (isSuperOver) {
+        result = "Match tied after super over";
       }
 
       await updateScore.mutateAsync({
@@ -458,6 +584,7 @@ const ScorerPage = () => {
     matchId,
     navigate,
     target,
+    isSuperOver,
     updateScore,
   ]);
 
@@ -518,33 +645,19 @@ const ScorerPage = () => {
         <div className="rounded-xl border border-border gradient-card p-5 space-y-4 shadow-card">
           <h2 className="font-display text-xl font-bold">Match Setup</h2>
           <p className="text-sm text-muted-foreground">
-            Select 11 players per team, choose first batting side, and overs.
+            Select 11 players per team, then choose batting first in the popup.
           </p>
 
-          <div className="grid md:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Total Overs</label>
-              <input
-                type="number"
-                min={1}
-                max={50}
-                value={draftOvers}
-                onChange={(e) => setDraftOvers(Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Batting First</label>
-              <select
-                value={draftFirstBattingTeam}
-                onChange={(e) => setDraftFirstBattingTeam(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Select team</option>
-                <option value={match.team1}>{match.team1}</option>
-                <option value={match.team2}>{match.team2}</option>
-              </select>
-            </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Total Overs</label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={draftOvers}
+              onChange={(e) => setDraftOvers(Number(e.target.value))}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -563,11 +676,115 @@ const ScorerPage = () => {
           </div>
 
           <button
-            onClick={saveSetup}
+            onClick={openBatFirstPopup}
             className="rounded-lg gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           >
-            Save Setup and Start Scoring
+            Continue Setup
           </button>
+        </div>
+      )}
+
+      {match && !setup && showBatFirstPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">
+                Who bats first?
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Choose the side that will open the innings.
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              <button
+                onClick={() => confirmBattingFirst(match.team1)}
+                className="rounded-xl border border-border bg-secondary px-4 py-4 text-left font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-secondary/70"
+              >
+                {match.team1}
+              </button>
+              <button
+                onClick={() => confirmBattingFirst(match.team2)}
+                className="rounded-xl border border-border bg-secondary px-4 py-4 text-left font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-secondary/70"
+              >
+                {match.team2}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowBatFirstPopup(false)}
+              className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-secondary-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {setup && showTieDecisionPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">
+                Match tied
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The scores are level. Start a super over or keep the result as a tie.
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              <button
+                onClick={startSuperOver}
+                className="rounded-xl gradient-primary px-4 py-4 text-left font-semibold text-primary-foreground"
+              >
+                Start Super Over
+              </button>
+              <button
+                onClick={() => void declareTieResult()}
+                className="rounded-xl border border-border bg-secondary px-4 py-4 text-left font-semibold text-foreground"
+              >
+                Keep Match Tied
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {setup && showSuperOverBatPopup && match && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-foreground">
+                Super over batting first
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Choose which team bats first in the super over.
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              <button
+                onClick={() => void confirmSuperOverBattingFirst(match.team1)}
+                className="rounded-xl border border-border bg-secondary px-4 py-4 text-left font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-secondary/70"
+              >
+                {match.team1}
+              </button>
+              <button
+                onClick={() => void confirmSuperOverBattingFirst(match.team2)}
+                className="rounded-xl border border-border bg-secondary px-4 py-4 text-left font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-secondary/70"
+              >
+                {match.team2}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowSuperOverBatPopup(false)}
+              className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-secondary-foreground"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -575,7 +792,9 @@ const ScorerPage = () => {
         <>
           <div className="rounded-xl border border-border gradient-card p-6 shadow-card text-center space-y-2">
             <p className="text-sm text-muted-foreground">
-              Innings {innings} - {battingTeam} batting vs {bowlingTeam}
+              {isSuperOver
+                ? `Super Over - ${innings === 3 ? "Innings 1" : "Innings 2"} - ${battingTeam} batting vs ${bowlingTeam}`
+                : `Innings ${innings} - ${battingTeam} batting vs ${bowlingTeam}`}
             </p>
             <p className="font-display text-5xl font-bold text-foreground">
               {summary.totalRuns}
@@ -591,19 +810,45 @@ const ScorerPage = () => {
             )}
           </div>
 
-          <div className="rounded-xl border border-border bg-secondary/25 p-4 text-sm space-y-2">
-            <p>
-              <strong>Striker:</strong> {striker?.name ?? "Select"}
-            </p>
-            <p>
-              <strong>Non-striker:</strong> {nonStriker?.name ?? "Select"}
-            </p>
-            <p>
-              <strong>Current bowler:</strong> {currentBowler?.name ?? "Select"}
-            </p>
-          </div>
+          {matchFinished ? (
+            <div className="rounded-xl border border-primary/30 bg-primary/10 p-5 space-y-3">
+              <p className="text-xs uppercase tracking-wider text-primary font-semibold">
+                Match Result
+              </p>
+              <h2 className="font-display text-2xl font-bold text-foreground">
+                {match?.result ?? "Match completed"}
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to={matchId ? `/match/${matchId}` : "/matches"}
+                  className="inline-flex items-center gap-2 rounded-lg gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Go Back to Match
+                </Link>
+                <Link
+                  to="/matches"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                >
+                  View All Matches
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-secondary/25 p-4 text-sm space-y-2">
+              <p>
+                <strong>Striker:</strong> {striker?.name ?? "Select"}
+              </p>
+              <p>
+                <strong>Non-striker:</strong> {nonStriker?.name ?? "Select"}
+              </p>
+              <p>
+                <strong>Current bowler:</strong> {currentBowler?.name ?? "Select"}
+              </p>
+            </div>
+          )}
 
-          {(!inningsState.strikerId || !inningsState.nonStrikerId) && !inningsComplete && (
+          {(!inningsState.strikerId || !inningsState.nonStrikerId) && !inningsComplete && !matchFinished && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
               <p className="text-sm font-semibold">Choose opening batters</p>
               <div className="grid md:grid-cols-2 gap-3">
@@ -648,7 +893,8 @@ const ScorerPage = () => {
           {!inningsState.strikerId &&
             !!inningsState.nonStrikerId &&
             availableNextBatters.length > 0 &&
-            !inningsComplete && (
+            !inningsComplete &&
+            !matchFinished && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-3">
               <p className="text-sm font-semibold">Select next batter</p>
               <div className="flex flex-wrap gap-2">
@@ -665,7 +911,7 @@ const ScorerPage = () => {
             </div>
           )}
 
-          {!currentBowler && !inningsComplete && (
+          {!currentBowler && !inningsComplete && !matchFinished && (
             <div className="rounded-xl border border-gold/30 bg-gold/10 p-4 space-y-3">
               <p className="text-sm font-semibold">
                 Select bowler for over {currentOver + 1}
@@ -685,7 +931,7 @@ const ScorerPage = () => {
             </div>
           )}
 
-          {pendingRuns !== null && (
+          {pendingRuns !== null && !matchFinished && (
             <div className="rounded-xl border border-gold/30 bg-gold/10 p-4 space-y-3">
               <p className="text-sm font-semibold">Extra runs on this ball</p>
               <div className="flex items-center gap-2 flex-wrap">
@@ -726,7 +972,7 @@ const ScorerPage = () => {
             </div>
           )}
 
-          {pendingWicket && (
+          {pendingWicket && !matchFinished && (
             <div className="rounded-xl border border-gold/30 bg-gold/10 p-4 space-y-3">
               <p className="text-sm font-semibold">
                 Select fielder for {pendingWicket.toLowerCase()}
@@ -753,6 +999,7 @@ const ScorerPage = () => {
             </div>
           )}
 
+          {!matchFinished && (
           <div className="space-y-4">
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-medium">Runs</p>
@@ -820,7 +1067,9 @@ const ScorerPage = () => {
               </div>
             </div>
           </div>
+          )}
 
+          {!matchFinished && (
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleUndo}
@@ -838,10 +1087,15 @@ const ScorerPage = () => {
               <RotateCcw className="h-4 w-4" /> Reset Match
             </button>
           </div>
+          )}
 
           {inningsComplete && (
             <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 text-sm font-semibold text-primary">
-              Innings complete. {innings === 1 ? "Switching to chase..." : "Match completed."}
+              {innings === 1
+                ? "Innings complete. Switching to chase..."
+                : matchFinished
+                  ? match?.result ?? "Match completed."
+                  : "Match completed."}
             </div>
           )}
 
