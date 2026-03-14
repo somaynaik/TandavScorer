@@ -69,7 +69,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             {navItems
               .filter((item) => {
                 if (item.to === "/admin") return canAccessAdmin;
-                if (item.to === "/fantasy-rank") return isAuthenticated && !canAccessAdmin;
+                if (item.to === "/fantasy-rank") return !canAccessAdmin;
                 return true;
               })
               .map((item) => {
@@ -174,7 +174,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             {navItems
               .filter((item) => {
                 if (item.to === "/admin") return canAccessAdmin;
-                if (item.to === "/fantasy-rank") return isAuthenticated && !canAccessAdmin;
+                if (item.to === "/fantasy-rank") return !canAccessAdmin;
                 return true;
               })
               .map((item) => {

@@ -46,11 +46,7 @@ const App = () => (
                   <Route path="/leaderboard" element={<LeaderboardPage />} />
                   <Route
                     path="/fantasy-rank"
-                    element={
-                      <ProtectedRoute>
-                        <FantasyRankPage />
-                      </ProtectedRoute>
-                    }
+                    element={<FantasyRankPage />}
                   />
 
                   {/* Protected: must be signed in */}

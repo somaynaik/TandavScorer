@@ -7,6 +7,7 @@ import {
   Zap,
   Loader2,
   AlertCircle,
+  Star,
 } from "lucide-react";
 import { useMatches, useMatchesRealtime } from "@/hooks/useMatches";
 import { useTournaments } from "@/hooks/useTournaments";
@@ -25,7 +26,7 @@ const HomePage = () => {
   const { data: tournaments, isLoading: tournamentsLoading } = useTournaments();
   const { data: leaderboard, isLoading: leaderboardLoading } =
     useTopLeaderboard(5);
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAuthenticated } = useAuth();
 
   useMatchesRealtime();
   useLeaderboardRealtime();
@@ -63,7 +64,7 @@ const HomePage = () => {
             Pick your XI, earn fantasy points from live matches, and climb the
             leaderboard.
           </p>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Link
               to="/matches"
               className="inline-flex items-center gap-2 rounded-lg gradient-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-glow transition-transform hover:scale-105"
@@ -75,6 +76,17 @@ const HomePage = () => {
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80"
             >
               Leaderboard
+            </Link>
+            <Link
+              to={isAuthenticated ? "/matches" : "/login"}
+              state={
+                isAuthenticated
+                  ? undefined
+                  : { from: "/matches" }
+              }
+              className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-6 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+            >
+              Create Fantasy11 <Star className="h-4 w-4" />
             </Link>
           </div>
         </div>
@@ -209,7 +221,7 @@ const HomePage = () => {
                     <div className="mt-3">
                       <Link
                         to={`/match/${match.id}/team-select`}
-                        className="inline-flex items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                        className="inline-flex items-center rounded-lg border border-primary/60 bg-emerald-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-800"
                       >
                         Create Fantasy XI
                       </Link>

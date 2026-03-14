@@ -234,7 +234,7 @@ const MatchListCard = ({ match, isAdmin, navigate }: MatchListCardProps) => (
           <Link
             to={`/match/${match.id}/team-select`}
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+            className="inline-flex items-center rounded-lg border border-primary/60 bg-emerald-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-800"
           >
             Create Fantasy XI
           </Link>
