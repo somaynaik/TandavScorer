@@ -63,7 +63,7 @@ const HomePage = () => {
             <span className="text-primary">Fantasy Arena</span>
           </h1>
           <p className="mx-auto max-w-lg text-muted-foreground text-lg">
-            Pick your XI, earn fantasy points from live matches, and climb the
+            Pick your XI, earn fantasy points from live matches and climb the
             leaderboard.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
