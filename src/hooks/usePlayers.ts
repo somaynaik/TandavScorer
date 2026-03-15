@@ -67,7 +67,6 @@ export function useTeamRoster(team: string) {
         .select("*")
         .eq("team", team)
         .is("match_id", null)
-        .order("role", { ascending: true })
         .order("name", { ascending: true });
       if (error) throw new Error(error.message);
       return data;
