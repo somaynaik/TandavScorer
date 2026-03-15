@@ -17,11 +17,17 @@ import {
   ShieldCheck,
   Pencil,
 } from "lucide-react";
-import { useMatches, useCreateMatch, useUpdateMatch } from "@/hooks/useMatches";
+import {
+  useMatches,
+  useCreateMatch,
+  useUpdateMatch,
+  useDeleteMatch,
+} from "@/hooks/useMatches";
 import {
   useTournaments,
   useCreateTournament,
   useUpdateTournament,
+  useDeleteTournament,
 } from "@/hooks/useTournaments";
 import {
   useTeams,
@@ -321,6 +327,21 @@ const TournamentCard = ({
   expanded,
   onToggle,
 }: TournamentCardProps) => {
+  const deleteTournament = useDeleteTournament();
+
+  const handleDeleteTournament = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (!confirm(`Delete tournament "${tournament.name}"?`)) return;
+    try {
+      await deleteTournament.mutateAsync(tournament.id);
+      toast.success(`Tournament "${tournament.name}" deleted.`);
+    } catch (err) {
+      toast.error("Failed to delete tournament", {
+        description: (err as Error).message,
+      });
+    }
+  };
+
   return (
     <div className="rounded-xl border border-border gradient-card shadow-card overflow-hidden">
       <button
@@ -336,6 +357,15 @@ const TournamentCard = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDeleteTournament}
+            disabled={deleteTournament.isPending}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+            title="Delete tournament"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
           <Pencil className="h-4 w-4 text-muted-foreground" />
           {expanded ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -755,6 +785,7 @@ const MatchAdminRow = ({ match }: MatchAdminRowProps) => {
   );
 
   const updateMatch = useUpdateMatch();
+  const deleteMatch = useDeleteMatch();
 
   const handleUpdate = async () => {
     try {
@@ -769,6 +800,18 @@ const MatchAdminRow = ({ match }: MatchAdminRowProps) => {
       setEditing(false);
     } catch (err) {
       toast.error("Failed to update match", {
+        description: (err as Error).message,
+      });
+    }
+  };
+
+  const handleDeleteMatch = async () => {
+    if (!confirm(`Delete match "${match.team1} vs ${match.team2}"?`)) return;
+    try {
+      await deleteMatch.mutateAsync(match.id);
+      toast.success("Match deleted successfully");
+    } catch (err) {
+      toast.error("Failed to delete match", {
         description: (err as Error).message,
       });
     }
@@ -813,6 +856,15 @@ const MatchAdminRow = ({ match }: MatchAdminRowProps) => {
             className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
           >
             {editing ? "Cancel" : "Edit"}
+          </button>
+
+          <button
+            onClick={handleDeleteMatch}
+            disabled={deleteMatch.isPending}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
+            title="Delete match"
+          >
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
