@@ -8,7 +8,7 @@ import {
   AlertCircle,
   LogIn,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMatch } from "@/hooks/useMatches";
 import { usePlayersByMatch, useTeamRoster } from "@/hooks/usePlayers";
 import {
@@ -16,7 +16,7 @@ import {
   useMyFantasyTeamForMatch,
 } from "@/hooks/useFantasyTeam";
 import { useAuth } from "@/hooks/useAuth";
-import type { Player } from "@/integrations/supabase/types";
+import type { FantasyTeam, Match, Player } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
 const roleColors: Record<string, string> = {
@@ -31,28 +31,32 @@ const TeamSelectPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const { data: match, isLoading: matchLoading } = useMatch(id!);
-  const { data: players, isLoading: playersLoading } = usePlayersByMatch(id!);
+  const { data: matchData, isLoading: matchLoading } = useMatch(id!);
+  const match: Match | null = matchData ?? null;
+  const { data: playersData, isLoading: playersLoading } = usePlayersByMatch(id!);
+  const players: Player[] = playersData ?? [];
   const { data: team1Roster = [], isLoading: team1RosterLoading } = useTeamRoster(
     match?.team1 ?? "",
   );
   const { data: team2Roster = [], isLoading: team2RosterLoading } = useTeamRoster(
     match?.team2 ?? "",
   );
-  const { data: existingTeam, isLoading: existingLoading } =
+  const { data: existingTeamData, isLoading: existingLoading } =
     useMyFantasyTeamForMatch(id!);
+  const existingTeam: FantasyTeam | null = existingTeamData ?? null;
 
   const upsertTeam = useUpsertFantasyTeam();
 
-  const [selected, setSelected] = useState<string[]>(
-    () => existingTeam?.player_ids ?? [],
-  );
-  const [captain, setCaptain] = useState<string | null>(
-    () => existingTeam?.captain_id ?? null,
-  );
-  const [viceCaptain, setViceCaptain] = useState<string | null>(
-    () => existingTeam?.vice_captain_id ?? null,
-  );
+  const [selected, setSelected] = useState<string[]>([]);
+  const [captain, setCaptain] = useState<string | null>(null);
+  const [viceCaptain, setViceCaptain] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!existingTeam) return;
+    setSelected(existingTeam.player_ids ?? []);
+    setCaptain(existingTeam.captain_id ?? null);
+    setViceCaptain(existingTeam.vice_captain_id ?? null);
+  }, [existingTeam]);
 
   const isLoading =
     matchLoading ||
@@ -106,19 +110,21 @@ const TeamSelectPage = () => {
     );
   }
 
-  const matchPlayers = players ?? [];
+  const currentMatch = match;
+
+  const matchPlayers = players;
   const allPlayers =
     matchPlayers.length > 0 ? matchPlayers : [...team1Roster, ...team2Roster];
 
-  const team1Players = allPlayers.filter((p) => p.team === match.team1);
-  const team2Players = allPlayers.filter((p) => p.team === match.team2);
+  const team1Players = allPlayers.filter((p) => p.team === currentMatch.team1);
+  const team2Players = allPlayers.filter((p) => p.team === currentMatch.team2);
 
   const playerById = new Map(allPlayers.map((p) => [p.id, p]));
   const selectedTeam1Count = selected.filter(
-    (pid) => playerById.get(pid)?.team === match.team1,
+    (pid) => playerById.get(pid)?.team === currentMatch.team1,
   ).length;
   const selectedTeam2Count = selected.filter(
-    (pid) => playerById.get(pid)?.team === match.team2,
+    (pid) => playerById.get(pid)?.team === currentMatch.team2,
   ).length;
 
   const togglePlayer = (pid: string) => {
@@ -135,7 +141,7 @@ const TeamSelectPage = () => {
     if (selected.length >= 11) return;
 
     const teamCount =
-      player.team === match.team1 ? selectedTeam1Count : selectedTeam2Count;
+      player.team === currentMatch.team1 ? selectedTeam1Count : selectedTeam2Count;
 
     if (teamCount >= 6) {
       toast.error(`Maximum 6 players allowed from ${player.team}.`);
@@ -202,7 +208,7 @@ const TeamSelectPage = () => {
           Pick Your Fantasy XI
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {match.team1} vs {match.team2} - Select {11 - selected.length} more
+          {currentMatch.team1} vs {currentMatch.team2} - Select {11 - selected.length} more
           player{11 - selected.length !== 1 && "s"}
         </p>
         <p className="text-xs text-muted-foreground mt-1">
@@ -229,10 +235,10 @@ const TeamSelectPage = () => {
 
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-muted-foreground">
-          {match.team1}: <span className="font-semibold text-foreground">{selectedTeam1Count}/6</span>
+          {currentMatch.team1}: <span className="font-semibold text-foreground">{selectedTeam1Count}/6</span>
         </div>
         <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-muted-foreground">
-          {match.team2}: <span className="font-semibold text-foreground">{selectedTeam2Count}/6</span>
+          {currentMatch.team2}: <span className="font-semibold text-foreground">{selectedTeam2Count}/6</span>
         </div>
       </div>
 
@@ -256,7 +262,7 @@ const TeamSelectPage = () => {
 
       <div className="grid gap-4 md:grid-cols-2">
         <TeamColumn
-          teamName={match.team1}
+          teamName={currentMatch.team1}
           players={team1Players}
           selected={selected}
           captain={captain}
@@ -266,7 +272,7 @@ const TeamSelectPage = () => {
           onViceCaptain={handleViceCaptain}
         />
         <TeamColumn
-          teamName={match.team2}
+          teamName={currentMatch.team2}
           players={team2Players}
           selected={selected}
           captain={captain}

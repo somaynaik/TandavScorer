@@ -16,6 +16,7 @@ import {
   useLeaderboardRealtime,
 } from "@/hooks/useLeaderboard";
 import { useAuth } from "@/hooks/useAuth";
+import type { Match, Tournament } from "@/integrations/supabase/types";
 
 const HomePage = () => {
   const {
@@ -31,10 +32,11 @@ const HomePage = () => {
   useMatchesRealtime();
   useLeaderboardRealtime();
 
-  const liveMatches = matches?.filter((m) => m.status === "live") ?? [];
-  const upcomingMatches =
-    matches?.filter((m) => m.status === "upcoming").slice(0, 3) ?? [];
-  const recentTournaments = tournaments?.slice(0, 3) ?? [];
+  const liveMatches: Match[] = (matches ?? []).filter((m: Match) => m.status === "live");
+  const upcomingMatches: Match[] = (matches ?? [])
+    .filter((m: Match) => m.status === "upcoming")
+    .slice(0, 3);
+  const recentTournaments: Tournament[] = (tournaments ?? []).slice(0, 3);
   const isLoading = matchesLoading || tournamentsLoading || leaderboardLoading;
 
   return (
