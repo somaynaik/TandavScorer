@@ -74,6 +74,12 @@ const HomePage = () => {
               View Matches <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
+              to="/teams"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-secondary/90 px-6 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+            >
+              View Teams
+            </Link>
+            <Link
               to="/leaderboard"
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80"
             >
