@@ -6,6 +6,7 @@ import {
   Shield,
   Tv,
   Star,
+  Users,
   Menu,
   X,
   LogIn,
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 
 const navItems = [
   { to: "/", label: "Home", icon: Trophy },
+  { to: "/teams", label: "Teams", icon: Users },
   { to: "/matches", label: "Matches", icon: Calendar },
   { to: "/leaderboard", label: "Leaderboard", icon: BarChart3 },
   { to: "/fantasy-rank", label: "Fantasy Rank", icon: Star },
@@ -69,6 +71,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             {navItems
               .filter((item) => {
                 if (item.to === "/admin") return canAccessAdmin;
+                if (item.to === "/teams") return !canAccessAdmin;
                 if (item.to === "/fantasy-rank") return !canAccessAdmin;
                 return true;
               })
@@ -174,6 +177,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             {navItems
               .filter((item) => {
                 if (item.to === "/admin") return canAccessAdmin;
+                if (item.to === "/teams") return !canAccessAdmin;
                 if (item.to === "/fantasy-rank") return !canAccessAdmin;
                 return true;
               })
